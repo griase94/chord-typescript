@@ -28,6 +28,7 @@ export class ChordNetwork {
   ): void {
     this.wss.on('connection', (socket: WebSocket) => {
       socket.on('message', async (data: RawData) => {
+        console.log('Received message:', data.toString());
         // Convert the incoming RawData to a string safely
         const request: ChordRequest = JSON.parse(data.toString());
         console.log('Received request:', request);

@@ -38,5 +38,6 @@ ENV PEER_PORT=''
 EXPOSE ${PORT}
 
 # We pass PORT as the first argument
-# Pass the optional parameters as the second and third argument
-CMD ["sh", "-c", "node dist/index.js \"$PORT\" \"$HOST\" \"$EXTRA_PORT\""]
+# Pass the PEER_PORT as the second argument
+# TODO Pass the PEER_HOST as well once implemented
+CMD ["sh", "-c", "node dist/index.js \"$PORT\" \"$PEER_PORT\""]

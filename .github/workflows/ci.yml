@@ -160,4 +160,4 @@ jobs:
 
         #TODO - name: Push Docker image
         #TODO        run: |
-        #TODO        docker push "$DOCKERHUB_USERNAME/my-awesome-app:latest"
+        #TODO        docker push "$DOCKERHUB_USERNAME/chord-typescript:latest"

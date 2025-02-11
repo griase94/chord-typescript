@@ -32,14 +32,21 @@ export class ChordNode implements ChordNodeBase, ChordProtocol {
 
   // Finger table
   private fingerTable = new Array<ChordNodeBase>(M);
+  // Helper variable to keep track of the finger that needs to be updated in the current fixFingers call
+  private fingerToUpdate = 0;
 
   // Key-Value store (the DHT part), plus a file for persistence
   private dataStore: ChordStorage;
 
   // nodeIdBase is an optional seed to use as a base for creating the node ID
-  constructor(port: number, knownPeer?: Connectable, nodeIdSeed?: string) {
-    // TODO Pass the storage object as a parameter to increase testability & abstraction
-    this.dataStore = new ChordMapStorage();
+  constructor(
+    port: number,
+    knownPeer?: Connectable,
+    nodeIdSeed?: string,
+    storage?: ChordStorage,
+  ) {
+    // If a storage object is provided, use it otherwise create a new map storage object
+    this.dataStore = storage || new ChordMapStorage();
 
     // Generate a node ID
     // If a nodeIdSeed is provided, use it to generate a stable ID
@@ -74,10 +81,11 @@ export class ChordNode implements ChordNodeBase, ChordProtocol {
     console.log(
       `Chord node with id ${this.nodeId} started on port ${this.port}`,
     );
-    // Start the stabilization process every Interval defined in settings
+    // Start the stabilization process running in the STABILIZE_INTERVAL defined in settings
     setInterval(async () => {
       await this.stabilize();
       await this.fixFingers();
+      await this.checkPredecessor();
     }, STABILIZE_INTERVAL);
   }
 
@@ -102,9 +110,6 @@ export class ChordNode implements ChordNodeBase, ChordProtocol {
     // Find the successor of this node
     const response = await this.network.sendRequest(peer, request);
 
-    if (response.type !== ChordResponseType.FIND_SUCCESSOR_RESPONSE) {
-      throw new Error('Unexpected response type');
-    }
     // TODO handle parsing Error
     const successor: ChordNodeBase = response.data.successor;
 
@@ -129,6 +134,8 @@ export class ChordNode implements ChordNodeBase, ChordProtocol {
         const predecessor = request.data.predecessor;
         if (
           !oldPredecessor ||
+          // TODO Evaluate if we should use open or semi-open interval here the pseudo code uses open interval
+          // TODO but open interval means we cannot be our own predecessor which should technically be allowed
           isInOpenInterval(
             predecessor.nodeId,
             oldPredecessor.nodeId,
@@ -142,6 +149,16 @@ export class ChordNode implements ChordNodeBase, ChordProtocol {
             sender: this.toChordNodeBase(),
             data: { message: 'OK' },
           });
+        } else if (oldPredecessor.nodeId === predecessor.nodeId) {
+          console.log(
+            `We still have the same predecessor: ${predecessor.nodeId}`,
+          );
+          this.predecessor = predecessor;
+          return Promise.resolve({
+            type: ChordResponseType.NOTIFY_RESPONSE,
+            sender: this.toChordNodeBase(),
+            data: { message: 'WELCOME BACK!' },
+          });
         }
         // If the new predecessor is not in the expected interval, reject it
         // TODO better error handling
@@ -153,12 +170,50 @@ export class ChordNode implements ChordNodeBase, ChordProtocol {
             data: { message: 'YOU LIED!' },
           });
         }
+      case ChordRequestType.GET_PREDECESSOR:
+        return Promise.resolve({
+          type: ChordResponseType.GET_PREDECESSOR_RESPONSE,
+          sender: this.toChordNodeBase(),
+          data: { predecessor: this.predecessor },
+        });
+      case ChordRequestType.PING:
+        return Promise.resolve({
+          type: ChordResponseType.PONG,
+          sender: this.toChordNodeBase(),
+          data: { message: 'PONG' },
+        });
+      case ChordRequestType.GET:
+        const value = await this.get(request.data.key);
+        return Promise.resolve({
+          type: ChordResponseType.GET_RESPONSE,
+          sender: this.toChordNodeBase(),
+          data: { value: value },
+        });
+      case ChordRequestType.PUT:
+        // TODO Implement a way of reporting if the key was present or not potentially by returning false if the key was not present
+        await this.store(request.data.key, request.data.value);
+        return Promise.resolve({
+          type: ChordResponseType.PUT_RESPONSE,
+          sender: this.toChordNodeBase(),
+          data: { message: 'OK' },
+        });
+      case ChordRequestType.REMOVE:
+        // TODO Implement a way of reporting if the key was present or not potentially by returning false if the key was not present
+        await this.remove(request.data.key);
+        return Promise.resolve({
+          type: ChordResponseType.REMOVE_RESPONSE,
+          sender: this.toChordNodeBase(),
+          data: { message: 'OK' },
+        });
       default:
         return Promise.reject(new Error('Unknown request type'));
     }
   }
 
-  // Protocol methods
+  // PROTOCOL METHODS
+  // ----------------
+
+  // Find the successor of a given ID
   async findSuccessor(id: number): Promise<ChordNodeBase> {
     // If the ID is between this node and its successor, return the successor
     if (isInSemiOpenInterval(id, this.nodeId, this.getSuccessor().nodeId)) {
@@ -179,13 +234,10 @@ export class ChordNode implements ChordNodeBase, ChordProtocol {
     };
     const response = await this.network.sendRequest(closestNode, request);
 
-    if (response.type !== ChordResponseType.FIND_SUCCESSOR_RESPONSE) {
-      throw new Error('Unexpected response type');
-    }
-
     return response.data.successor;
   }
 
+  // Find the closest preceding node to a given ID in the finger table
   private closestPrecedingNode(id: number): ChordNodeBase {
     for (let i = M - 1; i >= 0; i--) {
       const finger = this.fingerTable[i];
@@ -199,32 +251,112 @@ export class ChordNode implements ChordNodeBase, ChordProtocol {
     return this.toChordNodeBase();
   }
 
-  fixFingers(): Promise<void> {
-    console.log('Fixing fingers');
-    return Promise.resolve(undefined);
+  // Fixes one finger of the node in each call and increments the finger to update for the next call
+  async fixFingers(): Promise<void> {
+    // Select next finger to fix
+    const i = this.fingerToUpdate;
+
+    // Calculate the ID to find the successor for
+    const id = (this.nodeId + Math.pow(2, i)) % RING_SIZE;
+
+    // Find the successor for the ID and then update the finger table
+    this.fingerTable[i] = await this.findSuccessor(id);
+    // Increment the finger to update for the next call
+    this.fingerToUpdate = (this.fingerToUpdate + 1) % M;
   }
 
+  // Store a key-value pair in the DHT
+  // TODO Implement a way of reporting if the key was present or not potentially by returning false if the key was not present
+  async store(key: string, value: string): Promise<void> {
+    // Hash the key to get the ID
+    const id = hashStringSHA1(key);
+    const successor = await this.findSuccessor(id);
+
+    // If the successor is this node, store the key locally
+    if (successor.nodeId === this.nodeId) {
+      console.log(`Storing key ${key} with value ${value} locally`);
+      this.dataStore.set(key, value);
+      return Promise.resolve();
+    } else {
+      // Send a put request to the successor
+      const request = {
+        type: ChordRequestType.PUT,
+        sender: this.toChordNodeBase(),
+        data: { key, value },
+      };
+      await this.network.sendRequest(successor, request);
+      return Promise.resolve();
+    }
+  }
+
+  // Get a value from the DHT by key (if it exists) or return undefined if it does not
   async get(key: string): Promise<string | undefined> {
     console.log(`Getting key ${key}`);
-    return Promise.resolve(undefined);
+    // TODO Evaluate if it is smarter to first check the local store or hash the key and check our responsibility
+    // TODO Probably depends on the count of the existing nodes and the size of the data store
+    // TODO But probably most of the time it is best to first check the local store rather then sending requests around the network
+    // If the key is in the local store, return it
+    if (this.dataStore.has(key)) {
+      return Promise.resolve(this.dataStore.get(key));
+    }
+
+    // Hash the key to get the ID
+    const id = hashStringSHA1(key);
+    const successor = await this.findSuccessor(id);
+
+    // if the successor is this node, then the key is not in the DHT
+    if (successor.nodeId === this.nodeId) {
+      return Promise.resolve(undefined);
+    }
+
+    // Send a get request to the successor
+    const request = {
+      type: ChordRequestType.GET,
+      sender: this.toChordNodeBase(),
+      data: { key },
+    };
+    const response = await this.network.sendRequest(successor, request);
+
+    // Return the value from the response
+    return response.data.value;
   }
 
+  // Remove a key-value pair from the DHT
+  // TODO Implement a way of reporting if the key was present or not potentially by returning false if the key was not present
+  async remove(key: string): Promise<void> {
+    const id = hashStringSHA1(key);
+    const successor = await this.findSuccessor(id);
+
+    // If the successor is this node, store the key locally
+    if (successor.nodeId === this.nodeId) {
+      console.log(`Removing key ${key} from local store`);
+      this.dataStore.delete(key);
+      return Promise.resolve();
+    } else {
+      // Send a put request to the successor
+      const request = {
+        type: ChordRequestType.REMOVE,
+        sender: this.toChordNodeBase(),
+        data: { key },
+      };
+      await this.network.sendRequest(successor, request);
+      return Promise.resolve();
+    }
+  }
+
+  // Notify the successor of this node that this node is its predecessor
   async notify(node: ChordNodeBase): Promise<void> {
     console.log(`Notifying node ${node.nodeId}`);
     const successor = this.getSuccessor();
-    const response = await this.network.sendRequest(successor, {
+    await this.network.sendRequest(successor, {
       type: ChordRequestType.NOTIFY,
       sender: this.toChordNodeBase(),
       data: { predecessor: this.toChordNodeBase() },
     });
-    console.log('Notify response:', response);
   }
 
-  async remove(key: string): Promise<void> {
-    console.log(`Removing key ${key}`);
-    return Promise.resolve(undefined);
-  }
-
+  // Stabilize the ring by checking the predecessor of the successor
+  // TODO Implement ping to check if the successor / predecessor is still alive
   async stabilize(): Promise<void> {
     // Get the successor's predecessor
     const successor = this.getSuccessor();
@@ -247,15 +379,24 @@ export class ChordNode implements ChordNodeBase, ChordProtocol {
       this.setSuccessor(predecessor);
     }
 
-    // Notify the successor that this node is its predecessor
+    // Notify the new (or old) successor that this node is its predecessor
     await this.notify(this.getSuccessor());
 
     return Promise.resolve(undefined);
   }
 
-  async store(key: string, value: string): Promise<void> {
-    console.log(`Storing key ${key} with value ${value}`);
-    return Promise.resolve(undefined);
+  // Check if the predecessor is still alive
+  async checkPredecessor(): Promise<void> {
+    const predecessor = this.predecessor;
+    if (!predecessor) {
+      return Promise.resolve();
+    }
+    // TODO the Error case does not work yet because the network.sendRequest will result in a runtime error when the connection is refused
+    await this.network.sendRequest(predecessor, {
+      type: ChordRequestType.PING,
+      sender: this.toChordNodeBase(),
+      data: {},
+    });
   }
 
   // Helper method for getting successor which is first entry in finger table
@@ -270,6 +411,9 @@ export class ChordNode implements ChordNodeBase, ChordProtocol {
   private setSuccessor(successor: ChordNodeBase): void {
     this.fingerTable[0] = successor;
   }
+
+  // HELPER METHODS
+  // ----------------
 
   // Helper method for converting this node to a ChordNodeBase
   public toChordNodeBase(): ChordNodeBase {
