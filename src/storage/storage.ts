@@ -14,13 +14,13 @@ export class ChordMapStorage implements ChordStorage {
   get(key: string): string | undefined {
     return this.storage.get(key);
   }
-  set(key: string, value: string) {
+  set(key: string, value: string): void {
     this.storage.set(key, value);
   }
   has(key: string): boolean {
     return this.storage.has(key);
   }
-  delete(key: string) {
+  delete(key: string): void {
     this.storage.delete(key);
   }
 }
