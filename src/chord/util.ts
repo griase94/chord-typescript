@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 
-import { RING_SIZE } from './settings';
+import { RING_SIZE } from '../settings/settings';
 
 export function hashStringSHA1(str: string): number {
   const hash = crypto.createHash('sha1').update(str).digest('hex');

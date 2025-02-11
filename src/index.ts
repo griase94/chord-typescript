@@ -1,5 +1,5 @@
 import { ChordNode } from './chord/node';
-import { Connectable } from './chord/network';
+import { Connectable } from './network/network';
 
 // read port from the command line or use 8080 as default
 const port = parseInt(process.argv[2]!) || 8080;

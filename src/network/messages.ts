@@ -1,4 +1,4 @@
-import { ChordNodeBase } from './node';
+import { ChordNodeBase } from '../chord/node';
 
 enum ChordRequestType {
   PING = 'PING',

@@ -1,15 +1,15 @@
-import { ChordNetwork, Connectable } from './network';
-import { M, RING_SIZE, STABILIZE_INTERVAL } from './settings';
-import { hashStringSHA1, isInOpenInterval, isInSemiOpenInterval } from './util';
-
 import {
   ChordRequest,
   ChordRequestType,
   ChordResponse,
   ChordResponseType,
-} from './messages';
-import { ChordMapStorage, ChordStorage } from './storage';
+} from '../network/messages';
+import { ChordNetwork, Connectable } from '../network/network';
+import { M, RING_SIZE, STABILIZE_INTERVAL } from '../settings/settings';
+import { ChordMapStorage, ChordStorage } from '../storage/storage';
+
 import { ChordProtocol } from './protocol';
+import { hashStringSHA1, isInOpenInterval, isInSemiOpenInterval } from './util';
 
 export abstract class ChordNodeBase implements Connectable {
   abstract nodeId: number;
