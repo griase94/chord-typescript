@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    /*
+     * 1) Language Output & Module System
+     */
+    "target": "ES2020",           // Which JavaScript features to emit. ES2020 is a good baseline for Node 14+.
+    "module": "CommonJS",         // Node.js default for imports/exports. Could be "ESNext" if you prefer ESM.
+
+    /*
+     * 2) Paths & Project Structure
+     */
+    "rootDir": "src",             // Where your source files live.
+    "outDir": "dist",             // Where compiled files go.
+    "moduleResolution": "node",   // Match Node's resolution rules.
+
+    /*
+     * 3) Strictness & Type Safety
+     */
+    "strict": true,               // Enables a suite of type-checking options below.
+    "noImplicitAny": true,        // Errors on variables implicitly typed as `any`.
+    "strictNullChecks": true,     // Differentiates null/undefined from other types.
+    "strictFunctionTypes": true,  // Ensures function type parameters and return types are strictly checked.
+    "strictBindCallApply": true,  // Checks the correctness of `bind`, `call`, `apply` arguments.
+    "strictPropertyInitialization": true, // Ensures all class properties get initialized in the constructor or use definite assignment (!).
+    "noUncheckedIndexedAccess": true,     // Forces you to handle possibly `undefined` array elements.
+    "noImplicitOverride": true,   // Forces the use of the `override` keyword when subclassing (TS 4.3+).
+
+    /*
+     * 4) Code Quality & Readability
+     */
+    //"noUnusedLocals": true,       // Warn/error on unused local variables.
+    "noUnusedParameters": true,   // Warn/error on unused function parameters.
+    "noImplicitReturns": true,    // Some code paths might not return a value, which this flags.
+    "noFallthroughCasesInSwitch": true, // Prevent falling through case statements inadvertently.
+
+    /*
+     * 5) Interop & Library
+     */
+    "esModuleInterop": true,      // Enables default imports for CommonJS (important for packages like `ws`).
+    "skipLibCheck": true,         // Skip type-checking of .d.ts files in your node_modules (often speeds up builds).
+
+  },
+  "include": ["src"],             // Which folders/files to include
+  "exclude": ["node_modules", "dist"]  // Which folders/files to exclude
+}
