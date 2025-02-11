@@ -22,14 +22,18 @@ pnpm install
 # Build the project
 pnpm build
 
-# # Start the built project on port 8080 (default)
+# Run the built project on port 8080 (default)
 pnpm start
 
-# Start the built project on port 8081
+# Run the built project on port 8081
 pnpm start 8081
 
-# Start the built project on port 8081 and connect to the node on port 8080
+# Run the built project on port 8081 and connect to the node on port 8080
 pnpm start 8082 8080
+
+# Run the built project on port 8081 and connect to the node on port 8080 with a seed for id generation
+# This means that if we store a key in the node with the seed as the key, the key will be stored in this node (-> great for testing)
+pnpm start 8082 8080 "THIS IS A SEEDED NODE"
 
 # Run the Project in Development Mode (with hot-reloading)
 pnpm dev 
