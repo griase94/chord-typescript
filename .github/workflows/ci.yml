@@ -153,7 +153,7 @@ jobs:
       # TODO     echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
 
       - name: Build Docker image
-        run: docker build -f Dockerfile
+        run: docker build -f Dockerfile .
         #TODO  -t "$DOCKERHUB_USERNAME/chord-typescript:latest" \
 
         #TODO - name: Push Docker image
