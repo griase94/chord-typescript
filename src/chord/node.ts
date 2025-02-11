@@ -25,9 +25,10 @@ export class ChordNode implements ChordNodeBase, ChordProtocol {
   public ip = '127.0.0.1';
   public port;
 
+  // The network object to handle network communication
   private network: ChordNetwork;
 
-  // The known 'successor' and 'predecessor' in the ring
+  // The predecessor of the node, initially undefined
   private predecessor: ChordNodeBase | undefined;
 
   // Finger table
@@ -35,10 +36,12 @@ export class ChordNode implements ChordNodeBase, ChordProtocol {
   // Helper variable to keep track of the finger that needs to be updated in the current fixFingers call
   private fingerToUpdate = 0;
 
-  // Key-Value store (the DHT part), plus a file for persistence
+  // The storage object to store key-value pairs
   private dataStore: ChordStorage;
 
-  // nodeIdBase is an optional seed to use as a base for creating the node ID
+  // The nodeId can be generated on the basis of an optional seed
+  // We can also provide a known peer to join the ring
+  // We can also provide a storage object to use a custom storage implementation
   constructor(
     port: number,
     knownPeer?: Connectable,

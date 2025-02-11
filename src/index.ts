@@ -11,20 +11,23 @@ const knownPeerPort = process.argv[3];
 let peer: Connectable | undefined;
 if (knownPeerPort) {
   const ip = parseInt(knownPeerPort);
-
   peer = {
     ip: '127.0.0.1',
     port: ip,
   };
-
   console.log('Known peer:', peer);
+}
+
+const seed = process.argv[4];
+if (seed) {
+  console.log('Seed:', seed);
 }
 
 console.log('Starting Chord node...');
 
 if (peer) {
   console.log('Joining ring with known peer.');
-  const node = new ChordNode(port, peer);
+  const node = new ChordNode(port, peer, seed);
   console.log(
     `Node ID: ${node.nodeId} started on port ${port} with peer on port ${peer.port}.`,
   );
