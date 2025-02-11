@@ -6,7 +6,8 @@ import {
 } from '../network/messages';
 import { ChordNetwork, Connectable } from '../network/network';
 import { M, RING_SIZE, STABILIZE_INTERVAL } from '../settings/settings';
-import { ChordMapStorage, ChordStorage } from '../storage/storage';
+import { ChordStorage } from '../storage/chord-storage';
+import { ChordMapStorage } from '../storage/map-storage';
 
 import { ChordProtocol } from './protocol';
 import { hashStringSHA1, isInOpenInterval, isInSemiOpenInterval } from './util';

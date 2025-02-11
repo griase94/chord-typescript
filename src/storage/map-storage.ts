@@ -1,9 +1,4 @@
-export interface ChordStorage {
-  get(key: string): string | undefined;
-  set(key: string, value: string): void;
-  has(key: string): boolean;
-  delete(key: string): void;
-}
+import { ChordStorage } from './chord-storage';
 
 export class ChordMapStorage implements ChordStorage {
   storage: Map<string, string>;
