@@ -1,0 +1,9 @@
+.git
+.idea
+.github
+*Dockerfile*
+*docker-compose*
+dist
+node_modules
+.prettierrc
+eslint.config.cjs
